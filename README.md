@@ -1,2 +1,1 @@
-"# estudos-react-native" 
-"Branch Master" 
+Utilizado somente para estudos e testes.
