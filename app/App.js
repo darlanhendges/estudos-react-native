@@ -5,7 +5,8 @@
  */
 
 import React, { Component } from 'react';
-import { View, FlatList, Text, Button, StyleSheet, TextInput, TouchableOpacity, Image } from 'react-native';
+import { View, FlatList, Text, Button, StyleSheet, TextInput, TouchableOpacity, Image, Alert } from 'react-native';
+import firebase from 'firebase';
 
 export default class App extends Component {
 
@@ -16,20 +17,40 @@ export default class App extends Component {
       input: ''
     };
 
-    this.url = 'https://b7web.com.br/todo/85135';
+    // Initialize Firebase
+    var config = {
+      apiKey: "AIzaSyCL1JFcArYV-BIyX7ooysMBzKSIvqHsphw",
+      authDomain: "todo-79084.firebaseapp.com",
+      databaseURL: "https://todo-79084.firebaseio.com",
+      projectId: "todo-79084",
+      storageBucket: "todo-79084.appspot.com",
+      messagingSenderId: "122568684244"
+    };
+    firebase.initializeApp(config);
     this.carregaTodo();
   }
 
   carregaTodo() {
 
-    fetch(this.url)
-      .then((r) => r.json())
-      .then((json) => {
+    firebase.database().ref('todo').orderByChild('done').on('value', (snaphot) => {
+      let s = this.state;
+      s.lista = [];
 
-        let s = this.state;
-        s.lista = json.todo;
-        this.setState(s);
+      snaphot.forEach((childItem) => {
+
+        let val = childItem.val();
+        s.lista.push({
+          key: childItem.key,
+          item: val.item,
+          done: val.done
+        });
+
       });
+
+      this.setState(s);
+    });
+
+
   }
 
   alteraTexto(valor) {
@@ -45,24 +66,16 @@ export default class App extends Component {
     s.input = '';
     this.setState(s);
 
-    fetch(this.url, {
-      method: 'POST',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        item: texto
-      })
-    })
-      .then((r) => r.json())
-      .then((json) => {
-          this.carregaTodo();
-    });
+    if (texto.length > 0) {
 
-   
+      let todo = firebase.database().ref('todo');
+      let key = todo.push().key;
 
-
+      todo.child(key).set({
+        item: texto,
+        done: 0
+      });
+    }
   }
 
   render() {
@@ -80,7 +93,7 @@ export default class App extends Component {
           <FlatList
             data={this.state.lista}
             renderItem={({ item }) => <TodoItem data={item} />}
-            keyExtractor={(item, index) => item.id}
+
           >
 
           </FlatList>
@@ -99,10 +112,30 @@ class TodoItem extends Component {
 
 
   marcar() {
-
+    let done = this.props.data.done == '0' ? 1 : 0;
+    firebase.database().ref('todo/' + this.props.data.key).child('done').set(done);
   }
 
-  deletar() { }
+  deletar() {
+
+    // Works on both iOS and Android
+    Alert.alert(
+      'Atenção', 'Confirma remover o item selecionado?',
+      [
+        { text: 'Cancel', onPress: () => {}, style: 'cancel' },
+        {
+          text: 'OK', onPress: () => {
+            let key = this.props.data.key;
+            firebase.database().ref('todo/' + this.props.data.key).remove();
+          }
+        },
+      ],
+      { cancelable: false }
+    )
+
+
+
+  }
 
   render() {
 
@@ -111,13 +144,13 @@ class TodoItem extends Component {
     return (
       <View style={styles.areaTodoItem}>
 
-        <TouchableOpacity onPress={this.marcar} >
+        <TouchableOpacity onPress={this.marcar.bind(this)} style={styles.areaConcluido} >
           <Image source={this.concluido} style={styles.image} />
         </TouchableOpacity>
 
-        <Text>{this.props.data.item}</Text>
+        <Text style={styles.textItem} >{this.props.data.item}</Text>
 
-        <TouchableOpacity onPress={this.deletar} style={styles.areaDeletar} >
+        <TouchableOpacity onPress={this.deletar.bind(this)} style={styles.areaDeletar} >
           <Image source={require('./assets/images/delete.png')} style={styles.image} />
         </TouchableOpacity>
 
@@ -158,22 +191,29 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     marginTop: 20,
-    marginLeft: 20,
-    marginRight: 20,
+    marginLeft: 10,
+    marginRight: 10,
     paddingBottom: 20,
     borderBottomColor: '#CCCCCC',
     borderBottomWidth: 1,
-    alignItems: 'center'
+    alignItems: 'center',
   },
   image: {
-    width: 40,
-    height: 40,
-    marginRight: 20,
+    width: 30,
+    height: 30,
+    marginRight: 10,
   },
   areaDeletar: {
     flex: 1,
     alignItems: 'flex-end'
 
+  },
+  areaConcluido: {
+    flex: 1,
+    justifyContent: 'flex-start',
+  },
+  textItem: {
+    flex: 5,
   }
 
 });
